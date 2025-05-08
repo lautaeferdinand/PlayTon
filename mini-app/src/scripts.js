@@ -6,23 +6,49 @@ document.addEventListener('DOMContentLoaded', () => {
         manifestUrl: 'http://localhost:3000/tonconnect-manifest.json'
     });
 
+    let contractData = null;
+
+    // Ambil data kontrak dari server
+    fetch('/api/contract')
+        .then(response => response.json())
+        .then(data => {
+            contractData = data;
+        })
+        .catch(error => console.error('Error fetching contract data:', error));
+
     tonConnect.onStatusChange(wallet => {
         if (wallet) {
             statusDiv.textContent = `Status: Connected to ${wallet.account.address}`;
             connectWalletBtn.textContent = 'Disconnect Wallet';
             const sendBtn = document.createElement('button');
-            sendBtn.textContent = 'Send 0.01 TON';
+            sendBtn.textContent = 'Send 0.01 TON & Mint Jetton';
             sendBtn.id = 'sendTransaction';
             document.querySelector('main').appendChild(sendBtn);
 
             sendBtn.addEventListener('click', async () => {
+                if (!contractData) {
+                    statusDiv.textContent = 'Error: Contract data not loaded';
+                    return;
+                }
                 try {
                     const transaction = {
                         validUntil: Math.floor(Date.now() / 1000) + 60,
                         messages: [
                             {
-                                address: 'EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAM9c',
-                                amount: '10000000' // 0.01 TON
+                                address: wallet.account.address,
+                                amount: '10000000', // 0.01 TON
+                                payload: tonConnect.createPayload({
+                                    to: wallet.account.address,
+                                    value: '10000000',
+                                    abi: contractData.abi,
+                                    call_set: {
+                                        function_name: 'mint',
+                                        input: {
+                                            amount: '1000000' // 1 jetton
+                                        }
+                                    },
+                                    tvc: contractData.tvc
+                                })
                             }
                         ]
                     };
